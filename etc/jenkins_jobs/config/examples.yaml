@@ -1,0 +1,101 @@
+- job-template:
+    name: 'noop-check-communication'
+    node: '{node}'
+
+    builders:
+      - shell: |
+          #!/bin/bash -xe
+          echo "Hello world, this is the {vendor} Testing System"
+      - link-logs  # In macros.yaml from os-ext-testing
+
+#    publishers:
+#      - devstack-logs  # In macros.yaml from os-ext-testing
+#      - console-log  # In macros.yaml from os-ext-testing
+
+
+- job-template:
+    name: 'dsvm-tempest-full'
+    node: '{node}'
+
+    wrappers:
+      - timeout:
+          timeout: 185  # Timeout in *minutes*
+          fail: true  # A job run that exceeds the timeout will cause a failure
+      - timestamps
+
+    builders:
+      - net-info
+      - devstack-checkout
+      - shell: |
+          #!/bin/bash -xe
+
+          function pre_test_hook {{
+              cat <<EOF >$BASE/new/devstack/local.conf
+          
+          [[post-config|\$CINDER_CONF]]
+          [DEFAULT]
+          enabled_backends = cloudbyte
+          default_volume_type = cloudbyte
+
+          [cloudbyte]
+          # add you driver configuration here
+          volume_driver = cinder.volume.drivers.cloudbyte.cloudbyte.CloudByteISCSIDriver
+          volume_backend_name = cloudbyte
+          san_ip = <ELASTICENTER_IP>
+          san_login = <ELASTICENTER_USERNAME>
+          san_password = none
+          cb_tsm_name = <ELASTICENTER_VSM>
+          cb_account_name = <ELASTICENTER_ACCOUNT>
+          cb_apikey = <ELASTICENTER_APIKEY>
+          cb_confirm_volume_create_retries = 15
+          cb_confirm_volume_create_retry_interval = 5
+          cb_confirm_volume_delete_retries = 15
+          cb_confirm_volume_delete_retry_interval = 5
+          cb_add_qosgroup = latency:15,graceallowed:true,iopscontrol:true,memlimit:0,tpcontrol:false,throughput:0,iops:20,networkspeed:0
+          cb_create_volume = compression:off,deduplication:off,blocklength:512B,sync:always,protocoltype:ISCSI,recordsize:4k
+
+          # Use post-extra because the tempest configuration file is
+          # overwritten with the .sample after post-config.
+          [[post-extra|\$TEMPEST_CONFIG]]
+          [volume]
+          storage_protocol=iSCSI
+          vendor_name=CloudByte
+          ATTACH_ENCRYPTED_VOLUME_AVAILABLE=False
+          EOF
+
+              cat <<EOF >>$BASE/new/devstack/localrc
+          CINDER_ENABLED_BACKENDS=cloudbyte:cloudbyte
+          EOF
+
+          }}
+
+          export -f pre_test_hook
+
+          # To keep our CINDER_ENABLED_BACKENDS configuration in localrc
+          export KEEP_LOCALRC=true
+
+          export PYTHONUNBUFFERED=true
+          export DEVSTACK_GATE_TIMEOUT=300
+          export DEVSTACK_GATE_TEMPEST=1
+          export RE_EXEC=true
+          export DEVSTACK_GATE_NEUTRON=1
+          export TEMPEST_CONCURRENCY=1
+          # For Skipping few tests
+          export 'DEVSTACK_GATE_TEMPEST_REGEX=^(?=.*volume*)(?!tempest.thirdparty.boto.test_ec2_volumes.*)(?!tempest.thirdparty.boto.test_ec2_instance.*)(?!tempest.scenario.test_volume_boot_pattern.*)(?!tempest.scenario.test_minimum_basic.*)'
+          # For service required
+          export OVERRIDE_ENABLED_SERVICES=c-api,c-sch,c-vol,cinder,dstat,g-api,g-reg,horizon,key,mysql,n-api,n-cond,n-cpu,n-crt,n-obj,n-sch,rabbit,tempest,quantum,q-svc,q-agt,q-dhcp,q-l3,q-meta 
+
+          if [ -z $ZUUL_PROJECT ]; then
+              export ZUUL_PROJECT=openstack-dev/sandbox
+          fi
+          if [ -z $ZUUL_BRANCH ]; then
+              export ZUUL_BRANCH=master
+          fi
+
+          cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
+          ./safe-devstack-vm-gate-wrap.sh
+      - link-logs  # In macros.yaml from os-ext-testing
+
+    publishers:
+      - devstack-logs  # In macros.yaml from os-ext-testing
+      - console-log  # In macros.yaml from os-ext-testing
