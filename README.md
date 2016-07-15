@@ -1,16 +1,23 @@
-Data Repository Example for OpenStack External Testing
-======================================================
+# CloudByte CI Data
 
-This is an example Data Repository to use with OpenStack External Testing Platform Installer.
+**CloudByte CI Data** repository contains the configuration data files -- such as the **Gerrit username** and **private SSH key** file for your OpenStack testing account, that are used in setting up the OpenStack CI platform.
 
-DO NOT fork this repository.
+The easiest way to get your data repository set up is to make a copy of this example repository.
 
-It is intended to be copied to some private location (possibly a
-private GitHub repository, possibly somewhere else private in your organization). This
-repository will contain private SSH keys and other sensitive information.
+```
+git clone https://github.com/CloudByteStorages/CloudByte-CI-Data
+```
 
-Manual Instructions
--------------------
+The main components of that will be used are:
+- **vars.sh**
+- **etc/jenkins_job/config/examples.yaml**
+- **etc/jenkins_job/config/dsvm-cinder-driver.yaml.sample**
+- **etc/jenkins_job/config/projects.yaml**
+- **etc/jenkins_job/config/defaults.yaml**
+- **etc/zuul/layout.yaml**
+- **etc/nodepool/nodepool.yaml.erb**
+
+## Modifying or Using the CloudByte CI Data Repository
 
 Follow these manual instructions to get your data repository set up:
 
@@ -21,9 +28,11 @@ Follow these manual instructions to get your data repository set up:
 
 3. Create an SSH key pair that you will use for Jenkins. This SSH key pair will live
    in the `/var/lib/jenkins/.ssh/` directory on the master Jenkins host, and it will
-   be added to the `/home/jenkins/.ssh/authorized_keys` file of all slave hosts::
-
-    ssh-keygen -t rsa -b 1024 -N '' -f jenkins_key
+   be added to the `/home/jenkins/.ssh/authorized_keys` file of all slave hosts:
+  
+  ```
+  ssh-keygen -t rsa -b 1024 -N '' -f jenkins_key
+  ```
 
    Once you do the above, copy the `jenkins_key` and `jenkins_key.pub` files into your
    data repository.
@@ -53,6 +62,3 @@ Follow these manual instructions to get your data repository set up:
 
 10. Example the `etc/zuul/layout.yaml` file and ensure you set up each upstream project that your
    testing system intends to run Jenkins jobs for.
-
-11. Copy the `etc/nodepool/nodepool.yaml.erb.sample` to  `etc/nodepool/nodepool.yaml.erb` and modify as needed. Some common properties
-    are set in the vars.sh file and populated by puppet.
